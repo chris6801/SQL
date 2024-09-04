@@ -4,11 +4,17 @@ con = sqlite3.connect("inv.db")
 
 cur = con.cursor()
 
+
 event_stack = []
 
 event_test = ('sale', 2, 4, cur)
+event_testp = ('purchase', 3, 10, cur)
 
+event_stack.append(event_testp)
 event_stack.append(event_test)
+
+for item in event_stack:
+    print(list(item))
 
 def add_entry(table, upc, item, pi):
     cur.execute(f"""
@@ -23,23 +29,36 @@ def modify_entry(table, upc, col, val, cur):
     """, (val, upc))
 
 def parse_event(event_type, upc, amt, cur):
-    if event_type == 'sale':
-        cur.execute("SELECT pi FROM items WHERE upc=?", (upc,))
-        out = cur.fetchone()
-        
-        if out is not None:
-            current_pi = out[0]
-            new_pi = current_pi - amt
+    match event_type:
+        case 'sale':
+            cur.execute("SELECT pi FROM items WHERE upc=?", (upc,))
+            out = cur.fetchone()
+            
+            if out is not None:
+                current_pi = out[0]
+                new_pi = current_pi - amt
 
-            modify_entry('items', upc, 'pi', new_pi, cur)
-        else:
-            print(f"No item found with UPC: {upc}")    
+                modify_entry('items', upc, 'pi', new_pi, cur)
+            else:
+                print(f"No item found with UPC: {upc}")
+        case 'purchase':
+            cur.execute("SELECT pi FROM items WHERE upc=?", (upc,))
+            out = cur.fetchone()
+            
+            if out is not None:
+                current_pi = out[0]
+                new_pi = current_pi + amt
+
+                modify_entry('items', upc, 'pi', new_pi, cur)
+            else:
+                print(f"No item found with UPC: {upc}")     
 
 #modify_entry('items', 2, 'pi', 10, cur)
 
-for event in event_stack:
+while event_stack:
     e = event_stack.pop()
     parse_event(*e)
+print(list(event_stack))
 
 con.commit()
 
