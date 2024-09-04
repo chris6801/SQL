@@ -4,10 +4,22 @@ con = sqlite3.connect("inv.db")
 
 cur = con.cursor()
 
-cur.execute("CREATE TABLE IF NOT EXISTS items (upc, item, pi)")
-cur.execute("CREATE TABLE IF NOT EXISTS sales (id, date, upc, item, qty)")
+cur.execute("""CREATE TABLE IF NOT EXISTS items(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            upc INTEGER,
+            item VARCHAR(255),
+            pi INTEGER)
+    """)
 
-cur.execute("ALTER TABLE items MODIFY upc INT")
+cur.execute("""CREATE TABLE IF NOT EXISTS sales(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date VARCHAR(255),
+            upc INTEGER,
+            item VARCHAR(255),
+            qty INTEGER,
+            price REAL,
+            total REAL)
+    """)
 
 event_stack = []
 
@@ -15,22 +27,35 @@ event_test = ('sale', 2, 4, cur)
 event_testp = ('purchase', 3, 10, cur)
 
 event_stack.append(event_testp)
+
+cur = con.cursor()
 event_stack.append(event_test)
 
 for item in event_stack:
     print(list(item))
 
-def add_entry(table, upc, item, pi, *args, **kwargs):
+
+def add_item(upc, item, pi, cur):
     cur.execute(f"""
-        INSERT INTO {table} (upc, item, pi)
+        INSERT INTO items (upc, item, pi)
         SELECT ?, ?, ?
         WHERE NOT EXISTS (SELECT 1 FROM items WHERE upc=?)
     """, (upc, item, pi, upc))
 
-def modify_entry(table, upc, col, val, cur):
+def add_sale(date, upc, item, qty, price, total, cur):
     cur.execute(f"""
-        UPDATE {table} SET {col} = ? WHERE upc = ? 
-    """, (val, upc))
+        INSERT INTO sales (date, upc, item, qty, price, total)
+        SELECT ?, ?, ?, ?, ?, ?
+        WHERE NOT EXISTS (SELECT 1 FROM items WHERE upc=?)
+    """, (date, upc, item, qty, price, total))
+    #tries to add item in case not in items
+    add_item(upc, item, 0)
+    event_stack.append('sales', upc, qty, c)
+
+def modify_entry(table, id, col, val, cur):
+    cur.execute(f"""
+        UPDATE {table} SET {col} = ? WHERE id = ? 
+    """, (val, id))
 
 def parse_event(event_type, upc, amt, cur):
     match event_type:
@@ -75,7 +100,8 @@ while event_stack:
     parse_event(*e)
 print(list(event_stack))
 
-add_entry(sales, 1, )
+#add_item(4, 'potato', 3, cur)
+add_sale('12/20/2024', 3, 'red apple', 5, 2.99, 14.95, cur)
 
 con.commit()
 
