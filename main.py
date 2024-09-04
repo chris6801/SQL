@@ -23,12 +23,11 @@ cur.execute("""CREATE TABLE IF NOT EXISTS sales(
 
 event_stack = []
 
-event_test = ('sale', 2, 4, cur)
-event_testp = ('purchase', 3, 10, cur)
+event_test = ('sale', 7, 4, cur)
+event_testp = ('purchase', 4, 10, cur)
 
 event_stack.append(event_testp)
 
-cur = con.cursor()
 event_stack.append(event_test)
 
 for item in event_stack:
@@ -46,16 +45,15 @@ def add_sale(date, upc, item, qty, price, total, cur):
     cur.execute(f"""
         INSERT INTO sales (date, upc, item, qty, price, total)
         SELECT ?, ?, ?, ?, ?, ?
-        WHERE NOT EXISTS (SELECT 1 FROM items WHERE upc=?)
-    """, (date, upc, item, qty, price, total))
-    #tries to add item in case not in items
-    add_item(upc, item, 0)
-    event_stack.append('sales', upc, qty, c)
+    """, (date, upc, item, qty, price, total,))
 
-def modify_entry(table, id, col, val, cur):
-    cur.execute(f"""
-        UPDATE {table} SET {col} = ? WHERE id = ? 
-    """, (val, id))
+    #tries to add item in case not in items
+    add_item(upc, item, 0, cur)
+    event_stack.append(('sale', upc, qty, cur))
+
+def modify_item(upc, col, val, cur):
+    query = f"UPDATE items SET {col} = ? WHERE upc = ?"
+    cur.execute(query, (val, upc))
 
 def parse_event(event_type, upc, amt, cur):
     match event_type:
@@ -67,7 +65,7 @@ def parse_event(event_type, upc, amt, cur):
                 current_pi = out[0]
                 new_pi = current_pi - amt
 
-                modify_entry('items', upc, 'pi', new_pi, cur)
+                modify_item(upc, 'pi', new_pi, cur)
             else:
                 print(f"No item found with UPC: {upc}")
         case 'purchase':
@@ -78,7 +76,7 @@ def parse_event(event_type, upc, amt, cur):
                 current_pi = out[0]
                 new_pi = current_pi + amt
 
-                modify_entry('items', upc, 'pi', new_pi, cur)
+                modify_item(upc, 'pi', new_pi, cur)
             else:
                 print(f"No item found with UPC: {upc}")
         case 'waste':
@@ -95,13 +93,14 @@ def parse_event(event_type, upc, amt, cur):
 
 #modify_entry('items', 2, 'pi', 10, cur)
 
+#add_item(4, 'potato', 3, cur)
+#add_sale('12/21/2024', 2, 'milk', 2, 1.99, 3.98, cur)
+
+print(list(event_stack))
 while event_stack:
     e = event_stack.pop()
     parse_event(*e)
 print(list(event_stack))
-
-#add_item(4, 'potato', 3, cur)
-add_sale('12/20/2024', 3, 'red apple', 5, 2.99, 14.95, cur)
 
 con.commit()
 
