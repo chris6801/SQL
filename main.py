@@ -4,6 +4,10 @@ con = sqlite3.connect("inv.db")
 
 cur = con.cursor()
 
+cur.execute("CREATE TABLE IF NOT EXISTS items (upc, item, pi)")
+cur.execute("CREATE TABLE IF NOT EXISTS sales (id, date, upc, item, qty)")
+
+cur.execute("ALTER TABLE items MODIFY upc INT")
 
 event_stack = []
 
@@ -16,7 +20,7 @@ event_stack.append(event_test)
 for item in event_stack:
     print(list(item))
 
-def add_entry(table, upc, item, pi):
+def add_entry(table, upc, item, pi, *args, **kwargs):
     cur.execute(f"""
         INSERT INTO {table} (upc, item, pi)
         SELECT ?, ?, ?
@@ -51,7 +55,18 @@ def parse_event(event_type, upc, amt, cur):
 
                 modify_entry('items', upc, 'pi', new_pi, cur)
             else:
-                print(f"No item found with UPC: {upc}")     
+                print(f"No item found with UPC: {upc}")
+        case 'waste':
+            cur.execute("SELECT pi FROM items WHERE upc=?", (upc,))
+            out = cur.fetchone()
+            
+            if out is not None:
+                current_pi = out[0]
+                new_pi = current_pi - amt
+
+                modify_entry('items', upc, 'pi', new_pi, cur)
+            else:
+                print(f"No item found with UPC: {upc}")             
 
 #modify_entry('items', 2, 'pi', 10, cur)
 
@@ -59,6 +74,8 @@ while event_stack:
     e = event_stack.pop()
     parse_event(*e)
 print(list(event_stack))
+
+add_entry(sales, 1, )
 
 con.commit()
 
